@@ -171,6 +171,13 @@
       cursor: pointer;
     }
 
+    /* MOBILE/TABLET: Hide volume slider */
+    @media (max-width: 1024px) {
+      .volume-wrap {
+        display: none;
+      }
+    }
+
     /* MOBILE: Switch to vertical layout */
     @media (max-width: 480px) {
       .widget-wrap {
@@ -187,10 +194,6 @@
       .meta-wrap {
         align-items: center;
         text-align: center;
-      }
-
-      .volume-wrap {
-        max-width: 220px;
       }
     }
   </style>

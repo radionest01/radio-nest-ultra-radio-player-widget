@@ -37,7 +37,23 @@
       backdrop-filter: blur(12px);
       border-radius: 12px;
       max-width: 480px;
-      margin: 0 auto;
+      margin: 0; /* IMPORTANT: removed auto-centering */
+    }
+
+    /* Alignment classes */
+    .align-left {
+      margin-left: 0;
+      margin-right: auto;
+    }
+
+    .align-center {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .align-right {
+      margin-left: auto;
+      margin-right: 0;
     }
 
     /* Artwork */
@@ -233,6 +249,7 @@ const params = new URLSearchParams(window.location.search);
 const streamURL = params.get("stream");
 const metaURL = params.get("meta");
 const licenseKey = params.get("license");
+const align = params.get("align") || "center"; // NEW
 
 const licenseURL = "https://raw.githubusercontent.com/radionest01/radio-nest-ultra-radio-player/main/licenses.json";
 
@@ -291,6 +308,13 @@ let fallbackChip;
 const FALLBACK_ART = "https://i.ibb.co/Jj588RKm/Live-Stream-Default-Album-Art.png";
 
 function initPlayer() {
+
+  /* APPLY ALIGNMENT */
+  const widget = document.querySelector(".widget-wrap");
+  if (align === "left") widget.classList.add("align-left");
+  else if (align === "right") widget.classList.add("align-right");
+  else widget.classList.add("align-center");
+
   audio = new Audio();
   audio.src = streamURL;
   audio.preload = "none";

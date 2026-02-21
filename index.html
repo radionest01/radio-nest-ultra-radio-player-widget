@@ -37,7 +37,7 @@
       backdrop-filter: blur(12px);
       border-radius: 12px;
       max-width: 480px;
-      margin: 0; /* IMPORTANT: removed auto-centering */
+      margin: 0;
     }
 
     /* Alignment classes */
@@ -244,12 +244,11 @@
 </div>
 
 <script>
-/* --- your full JS logic remains unchanged --- */
 const params = new URLSearchParams(window.location.search);
 const streamURL = params.get("stream");
 const metaURL = params.get("meta");
 const licenseKey = params.get("license");
-const align = params.get("align") || "center"; // NEW
+const align = params.get("align") || "center";
 
 const licenseURL = "https://raw.githubusercontent.com/radionest01/radio-nest-ultra-radio-player/main/licenses.json";
 
@@ -306,6 +305,8 @@ let artworkEl;
 let fallbackChip;
 
 const FALLBACK_ART = "https://i.ibb.co/Jj588RKm/Live-Stream-Default-Album-Art.png";
+
+let audio, playButton, volumeBar, titleEl, subEl;
 
 function initPlayer() {
 
@@ -370,6 +371,21 @@ function showFallback() {
   fallbackChip.style.display = "none";
 }
 
+/* Helper: send update to Cloudflare Worker */
+function sendHistoryUpdate(title, artist, artUrl) {
+  if (!title) return;
+  const workerUrl = "https://radiohistoryworker.sthelensliveradio.workers.dev/update";
+  const url =
+    workerUrl +
+    `?title=${encodeURIComponent(title)}` +
+    `&artist=${encodeURIComponent(artist || "")}` +
+    `&art=${encodeURIComponent(artUrl || "")}`;
+
+  fetch(url).catch(() => {
+    // fail silently – player must never break because of history
+  });
+}
+
 async function fetchMetadata() {
   try {
     const res = await fetch(metaURL + "?_=" + Date.now());
@@ -386,10 +402,13 @@ async function fetchMetadata() {
       return;
     }
 
-    titleEl.textContent = raw.trim();
+    const cleanTitle = raw.trim();
+
+    titleEl.textContent = cleanTitle;
     subEl.textContent = "";
 
-    updateArtwork(raw.trim(), "");
+    // We don't have artist split, so pass empty artist for now
+    updateArtwork(cleanTitle, "");
 
   } catch {
     applyFallbackMetadata();
@@ -401,6 +420,8 @@ async function updateArtwork(title, artist) {
 
   if (!query) {
     showFallback();
+    // still send history with fallback art
+    sendHistoryUpdate(title, artist, FALLBACK_ART);
     return;
   }
 
@@ -410,9 +431,12 @@ async function updateArtwork(title, artist) {
     );
     const data = await res.json();
 
+    let finalArt = FALLBACK_ART;
+
     if (data.results && data.results.length > 0) {
       let art = data.results[0].artworkUrl100;
       art = art.replace("100x100bb.jpg", "1200x1200bb.jpg");
+      finalArt = art;
 
       if (artworkEl.src !== art) {
         artworkEl.classList.add("fade");
@@ -426,8 +450,14 @@ async function updateArtwork(title, artist) {
     } else {
       showFallback();
     }
+
+    // Send to history with resolved artwork
+    sendHistoryUpdate(title, artist, finalArt);
+
   } catch {
     showFallback();
+    // still log with fallback art on error
+    sendHistoryUpdate(title, artist, FALLBACK_ART);
   }
 }
 

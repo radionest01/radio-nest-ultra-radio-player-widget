@@ -157,6 +157,20 @@
       transform: scale(1.05);
     }
 
+    /* Powered by Radio Nest */
+    .powered-by {
+      margin-top: 6px;
+      font-size: 11px;
+      opacity: 0.85;
+    }
+
+    .powered-by a {
+      color: #4da3ff;
+      text-decoration: underline;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
     /* MOBILE: Switch to vertical layout */
     @media (max-width: 480px) {
       .widget-wrap {
@@ -201,6 +215,10 @@
 
     <div class="volume-wrap">
       <input id="volumeBar" class="volume-bar" type="range" min="0" max="100" value="100">
+    </div>
+
+    <div class="powered-by">
+      <a href="https://myradionest.com" target="_blank">Powered by Radio Nest</a>
     </div>
   </div>
 

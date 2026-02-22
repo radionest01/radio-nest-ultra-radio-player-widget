@@ -43,6 +43,7 @@
     .align-center { margin-left: auto; margin-right: auto; }
     .align-right { margin-left: auto; margin-right: 0; }
 
+    /* Artwork (responsive max 200px) */
     .art-wrap {
       width: 150px;
       height: 150px;
@@ -143,62 +144,178 @@
       outline: none;
       border: none;
       -webkit-appearance: none;
+      appearance: none;
+    }
+
+    .volume-bar::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      width: 14px;
+      height: 14px;
+      border-radius: 50%;
+      background: var(--slider-thumb);
+      margin-top: -4px;
+      transition: box-shadow 0.15s ease, transform 0.15s ease;
+    }
+
+    .volume-bar::-webkit-slider-thumb:hover {
+      box-shadow: 0 0 0 6px var(--slider-thumb-glow);
+      transform: scale(1.05);
+    }
+
+    .powered-by {
+      margin-top: 6px;
+      font-size: 11px;
+      opacity: 0.85;
+    }
+
+    .powered-by a {
+      color: #4da3ff;
+      text-decoration: underline;
+      font-weight: 600;
+      cursor: pointer;
+    }
+
+    /* Hide volume on mobile/tablet */
+    @media (max-width: 1024px) {
+      .volume-wrap { display: none; }
+    }
+
+    /* Desktop override */
+    @media (min-width: 1025px) {
+      .volume-wrap { display: block !important; }
+    }
+
+    /* Mobile layout */
+    @media (max-width: 480px) {
+      .widget-wrap {
+        flex-direction: column;
+        max-width: 100%;
+        padding: 16px;
+      }
+      .art-wrap {
+        width: 180px;
+        height: 180px;
+      }
+      .meta-wrap {
+        align-items: center;
+        text-align: center;
+      }
     }
   </style>
 </head>
 
 <body>
 
+<div class="widget-wrap" id="playerArea">
+
+  <div class="art-wrap">
+    <img id="artwork" class="art-img" src="" alt="">
+    <div id="fallbackChip" class="fallback-chip">NO ARTWORK</div>
+  </div>
+
+  <div class="meta-wrap">
+    <div class="onair-label"><span>●</span> NOW PLAYING</div>
+
+    <div id="trackTitle" class="track-title">Loading…</div>
+    <div id="trackSub" class="track-sub"></div>
+
+    <button id="playButton" class="play-btn">PLAY</button>
+
+    <div class="volume-wrap">
+      <input id="volumeBar" class="volume-bar" type="range" min="0" max="100" value="100">
+    </div>
+
+    <div class="powered-by">
+      <a href="https://myradionest.com" target="_blank">Powered by Radio Nest</a>
+    </div>
+  </div>
+
+</div>
+
 <script>
-/* ---------------- FALLBACK ART (ADDED) ---------------- */
-const FALLBACK_ART = "https://i.ibb.co/Jj588RKm/Live-Stream-Default-Album-Art.png";
+/* ---------------- GLOBAL DOM REFERENCES ---------------- */
+const titleEl = document.getElementById("trackTitle");
+const subEl = document.getElementById("trackSub");
+const artworkEl = document.getElementById("artwork");
+const fallbackChip = document.getElementById("fallbackChip");
+
+/* Global fallback art */
+const FALLBACK_ART = "https://myradionest.com/assets/fallback.png";
+
+/* ---------------- PARAMS ---------------- */
+const params = new URLSearchParams(window.location.search);
+const streamURL = params.get("stream");
+const metaURL = params.get("meta");
+const licenseKey = params.get("license");
+const align = params.get("align") || "center";
+
+const licenseURL = "https://raw.githubusercontent.com/radionest01/radio-nest-ultra-radio-player/main/licenses.json";
 
 /* ---------------- LICENSE CHECK ---------------- */
 async function checkLicense() {
-  const urlParams = new URLSearchParams(window.location.search);
-  const licenseKey = urlParams.get("license");
-
-  if (!licenseKey) return false;
-
   try {
-    const res = await fetch(
-      `https://licensingworker.myradionest.workers.dev/validate?key=${licenseKey}`
-    );
+    const res = await fetch(licenseURL + "?_=" + Date.now());
     const data = await res.json();
-    return data.valid;
+
+    if (!data.licenses || !Array.isArray(data.licenses)) {
+      return showInvalid("data");
+    }
+
+    const license = data.licenses.find(l => l.key === licenseKey);
+
+    if (!license) return showInvalid("invalid");
+
+    if (license.expires !== "never") {
+      const today = new Date();
+      const expiry = new Date(license.expires);
+      if (today > expiry) return showInvalid("expired");
+    }
+
+    return true;
+
   } catch {
-    return false;
+    return showInvalid("data");
   }
 }
 
-/* ---------------- INIT PLAYER ---------------- */
-async function initPlayer() {
-  const urlParams = new URLSearchParams(window.location.search);
+function showInvalid(reason) {
+  let title = "";
+  let message = "";
 
-  const streamURL = urlParams.get("stream");
-  const metaURL = urlParams.get("meta");
-  const align = urlParams.get("align") || "center";
+  if (reason === "expired") {
+    title = "License Expired";
+    message = `The license for the Radio Nest Ultra Player has expired. Renew your licence at 
+      <a href="https://myradionest.com" target="_blank" style="color:#4da3ff;">myradionest.com</a>.`;
+  } else {
+    title = "Invalid License";
+    message = "This Radio Nest Ultra Player is not licensed.";
+  }
 
-  const wrapper = document.querySelector(".widget-wrap");
-  wrapper.classList.add(`align-${align}`);
+  document.getElementById("playerArea").innerHTML = `
+    <div style="width:100%;text-align:center;padding:40px 20px;color:#fff;">
+      <h1 style="font-size:24px;margin-bottom:10px;">${title}</h1>
+      <p style="font-size:14px;opacity:0.7;">${message}</p>
+    </div>
+  `;
 
-  const artworkEl = document.querySelector(".art-img");
-  const fallbackChip = document.querySelector(".fallback-chip");
-  const titleEl = document.querySelector(".track-title");
-  const subEl = document.querySelector(".track-sub");
-  const playBtn = document.querySelector(".play-btn");
-  const volumeBar = document.querySelector(".volume-bar");
+  return false;
+}
 
+/* ---------------- PLAYER INIT ---------------- */
+function initPlayer() {
   const audio = new Audio(streamURL);
-  audio.crossOrigin = "anonymous";
+  const playButton = document.getElementById("playButton");
+  const volumeBar = document.getElementById("volumeBar");
 
-  playBtn.addEventListener("click", () => {
+  document.getElementById("playerArea").classList.add(`align-${align}`);
+
+  playButton.addEventListener("click", () => {
     if (audio.paused) {
       audio.play();
-      playBtn.textContent = "Pause";
+      playButton.textContent = "PAUSE";
     } else {
       audio.pause();
-      playBtn.textContent = "Play";
+      playButton.textContent = "PLAY";
     }
   });
 
@@ -216,109 +333,109 @@ async function initPlayer() {
   } else {
     applyFallbackMetadata();
   }
+}
 
-  /* ---------------- METADATA ---------------- */
-  function applyFallbackMetadata() {
-    titleEl.textContent = "Live Stream";
-    subEl.textContent = "";
-    showFallback();
+/* ---------------- METADATA ---------------- */
+function applyFallbackMetadata() {
+  titleEl.textContent = "Live Stream";
+  subEl.textContent = "";
+  showFallback();
+}
+
+function showFallback() {
+  if (artworkEl.src !== FALLBACK_ART) {
+    artworkEl.classList.add("fade");
+    setTimeout(() => {
+      artworkEl.src = FALLBACK_ART;
+      artworkEl.classList.remove("fade");
+    }, 200);
   }
+  fallbackChip.style.display = "none";
+}
 
-  function showFallback() {
-    if (artworkEl.src !== FALLBACK_ART) {
-      artworkEl.classList.add("fade");
-      setTimeout(() => {
-        artworkEl.src = FALLBACK_ART;
-        artworkEl.classList.remove("fade");
-      }, 200);
-    }
-    fallbackChip.style.display = "none";
-  }
+/* ---------------- HISTORY WORKER ---------------- */
+function sendHistoryUpdate(title, artist, artUrl) {
+  if (!title) return;
+  const workerUrl = "https://radiohistoryworker.sthelensliveradio.workers.dev/update";
+  const url =
+    workerUrl +
+    `?title=${encodeURIComponent(title)}` +
+    `&artist=${encodeURIComponent(artist || "")}` +
+    `&art=${encodeURIComponent(artUrl || "")}`;
 
-  /* ---------------- HISTORY WORKER ---------------- */
-  function sendHistoryUpdate(title, artist, artUrl) {
-    if (!title) return;
-    const workerUrl = "https://radiohistoryworker.sthelensliveradio.workers.dev/update";
-    const url =
-      workerUrl +
-      `?title=${encodeURIComponent(title)}` +
-      `&artist=${encodeURIComponent(artist || "")}` +
-      `&art=${encodeURIComponent(artUrl || "")}`;
+  fetch(url).catch(() => {});
+}
 
-    fetch(url).catch(() => {});
-  }
+/* ---------------- FETCH METADATA ---------------- */
+async function fetchMetadata() {
+  try {
+    const res = await fetch(metaURL + "?_=" + Date.now());
+    const data = await res.json();
 
-  /* ---------------- FETCH METADATA ---------------- */
-  async function fetchMetadata() {
-    try {
-      const res = await fetch(metaURL + "?_=" + Date.now());
-      const data = await res.json();
+    let source = data.icestats && data.icestats.source;
+    if (Array.isArray(source)) source = source[0];
+    source = source || {};
 
-      let source = data.icestats && data.icestats.source;
-      if (Array.isArray(source)) source = source[0];
-      source = source || {};
+    let raw = source.title || "";
 
-      let raw = source.title || "";
-
-      if (!raw.trim()) {
-        applyFallbackMetadata();
-        return;
-      }
-
-      const cleanTitle = raw.trim();
-
-      titleEl.textContent = cleanTitle;
-      subEl.textContent = "";
-
-      updateArtwork(cleanTitle, "");
-
-    } catch {
+    if (!raw.trim()) {
       applyFallbackMetadata();
-    }
-  }
-
-  /* ---------------- ARTWORK ---------------- */
-  async function updateArtwork(title, artist) {
-    const query = encodeURIComponent(title.trim());
-
-    if (!query) {
-      showFallback();
-      sendHistoryUpdate(title, artist, FALLBACK_ART);
       return;
     }
 
-    try {
-      const res = await fetch(
-        `https://itunes.apple.com/search?term=${query}&entity=song&limit=1`
-      );
-      const data = await res.json();
+    const cleanTitle = raw.trim();
 
-      let finalArt = FALLBACK_ART;
+    titleEl.textContent = cleanTitle;
+    subEl.textContent = "";
 
-      if (data.results && data.results.length > 0) {
-        let art = data.results[0].artworkUrl100;
-        art = art.replace("100x100bb.jpg", "1200x1200bb.jpg");
-        finalArt = art;
+    updateArtwork(cleanTitle, "");
 
-        if (artworkEl.src !== art) {
-          artworkEl.classList.add("fade");
-          setTimeout(() => {
-            artworkEl.src = art;
-            artworkEl.classList.remove("fade");
-          }, 200);
-        }
+  } catch {
+    applyFallbackMetadata();
+  }
+}
 
-        fallbackChip.style.display = "none";
-      } else {
-        showFallback();
+/* ---------------- ARTWORK ---------------- */
+async function updateArtwork(title, artist) {
+  const query = encodeURIComponent(title.trim());
+
+  if (!query) {
+    showFallback();
+    sendHistoryUpdate(title, artist, FALLBACK_ART);
+    return;
+  }
+
+  try {
+    const res = await fetch(
+      `https://itunes.apple.com/search?term=${query}&entity=song&limit=1`
+    );
+    const data = await res.json();
+
+    let finalArt = FALLBACK_ART;
+
+    if (data.results && data.results.length > 0) {
+      let art = data.results[0].artworkUrl100;
+      art = art.replace("100x100bb.jpg", "1200x1200bb.jpg");
+      finalArt = art;
+
+      if (artworkEl.src !== art) {
+        artworkEl.classList.add("fade");
+        setTimeout(() => {
+          artworkEl.src = art;
+          artworkEl.classList.remove("fade");
+        }, 200);
       }
 
-      sendHistoryUpdate(title, artist, finalArt);
-
-    } catch {
+      fallbackChip.style.display = "none";
+    } else {
       showFallback();
-      sendHistoryUpdate(title, artist, FALLBACK_ART);
     }
+
+    sendHistoryUpdate(title, artist, finalArt);
+
+  } catch {
+    showFallback();
+    sendHistoryUpdate(title, artist, FALLBACK_ART);
   }
 }
 

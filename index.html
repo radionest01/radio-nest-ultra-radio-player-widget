@@ -63,17 +63,7 @@
     .art-img.fade { opacity: 0; }
 
     .fallback-chip {
-      position: absolute;
-      left: 8px;
-      bottom: 8px;
-      padding: 3px 8px;
-      border-radius: 999px;
-      font-size: 9px;
-      letter-spacing: 0.18em;
-      text-transform: uppercase;
-      background: rgba(0,0,0,0.5);
-      color: #fff;
-      display: none;
+      display: none; /* Hidden per your choice */
     }
 
     .meta-wrap {
@@ -270,13 +260,17 @@ function initPlayer() {
   const artworkEl = document.getElementById("artwork");
   const fallbackChip = document.getElementById("fallbackChip");
 
-  const FALLBACK_ART = "https://myradionest.com/assets/fallback.png";
+  const FALLBACK_ART = "https://i.ibb.co/Jj588RKm/Live-Stream-Default-Album-Art.png";
 
   let lastSentTitle = "";
   let lastSentArtist = "";
   let lastSentArt = "";
 
   document.getElementById("playerArea").classList.add(`align-${align}`);
+
+  // Always start with fallback art
+  artworkEl.src = FALLBACK_ART;
+  fallbackChip.style.display = "none";
 
   playButton.addEventListener("click", () => {
     if (audio.paused) {

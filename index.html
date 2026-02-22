@@ -26,7 +26,6 @@
       color: var(--text);
     }
 
-    /* Widget container */
     .widget-wrap {
       display: flex;
       flex-direction: row;
@@ -40,23 +39,10 @@
       margin: 0;
     }
 
-    /* Alignment classes */
-    .align-left {
-      margin-left: 0;
-      margin-right: auto;
-    }
+    .align-left { margin-right: auto; }
+    .align-center { margin-left: auto; margin-right: auto; }
+    .align-right { margin-left: auto; }
 
-    .align-center {
-      margin-left: auto;
-      margin-right: auto;
-    }
-
-    .align-right {
-      margin-left: auto;
-      margin-right: 0;
-    }
-
-    /* Artwork */
     .art-wrap {
       width: 150px;
       height: 150px;
@@ -74,9 +60,7 @@
       transition: opacity 0.4s ease;
     }
 
-    .art-img.fade {
-      opacity: 0;
-    }
+    .art-img.fade { opacity: 0; }
 
     .fallback-chip {
       position: absolute;
@@ -92,7 +76,6 @@
       display: none;
     }
 
-    /* Metadata + controls */
     .meta-wrap {
       display: flex;
       flex-direction: column;
@@ -110,9 +93,7 @@
       color: var(--subtext);
     }
 
-    .onair-label span {
-      color: #ff9c35;
-    }
+    .onair-label span { color: #ff9c35; }
 
     .track-title {
       font-size: 16px;
@@ -141,10 +122,7 @@
       box-shadow: 0 6px 14px rgba(0,0,0,0.3);
     }
 
-    .volume-wrap {
-      width: 100%;
-      max-width: 160px;
-    }
+    .volume-wrap { width: 100%; max-width: 160px; }
 
     .volume-bar {
       width: 100%;
@@ -173,7 +151,6 @@
       transform: scale(1.05);
     }
 
-    /* Powered by Radio Nest */
     .powered-by {
       margin-top: 6px;
       font-size: 11px;
@@ -187,37 +164,16 @@
       cursor: pointer;
     }
 
-    /* MOBILE/TABLET: Hide volume slider */
-    @media (max-width: 1024px) {
-      .volume-wrap {
-        display: none;
-      }
-    }
+    @media (max-width: 1024px) { .volume-wrap { display: none; } }
 
-    /* MOBILE: Switch to vertical layout */
     @media (max-width: 480px) {
-      .widget-wrap {
-        flex-direction: column;
-        max-width: 100%;
-        padding: 16px;
-      }
-
-      .art-wrap {
-        width: 180px;
-        height: 180px;
-      }
-
-      .meta-wrap {
-        align-items: center;
-        text-align: center;
-      }
+      .widget-wrap { flex-direction: column; max-width: 100%; padding: 16px; }
+      .art-wrap { width: 180px; height: 180px; }
+      .meta-wrap { align-items: center; text-align: center; }
     }
 
-    /* DESKTOP: always show volume on real desktops */
     @media screen and (min-width: 1025px) {
-      .volume-wrap {
-        display: block !important;
-      }
+      .volume-wrap { display: block !important; }
     }
   </style>
 </head>
@@ -259,31 +215,14 @@ const align = params.get("align") || "center";
 
 const licenseURL = "https://raw.githubusercontent.com/radionest01/radio-nest-ultra-radio-player/main/licenses.json";
 
-/* Global fallback art so ALL functions can use it */
-const FALLBACK_ART = "https://myradionest.com/assets/fallback.png";
-
-/* Parse "Artist - Title - Version" → { artist, title } */
-function parseMetadata(raw) {
-  const parts = raw.split(" - ");
-  if (parts.length >= 2) {
-    const artist = parts[0].trim();
-    const title = parts[1].trim();
-    return { artist, title };
-  }
-  return { artist: "", title: raw.trim() };
-}
-
 async function checkLicense() {
   try {
     const res = await fetch(licenseURL + "?_=" + Date.now());
     const data = await res.json();
 
-    if (!data.licenses || !Array.isArray(data.licenses)) {
-      return showInvalid("data");
-    }
+    if (!data.licenses || !Array.isArray(data.licenses)) return showInvalid("data");
 
     const license = data.licenses.find(l => l.key === licenseKey);
-
     if (!license) return showInvalid("invalid");
 
     if (license.expires !== "never") {
@@ -322,16 +261,20 @@ function showInvalid(reason) {
   return false;
 }
 
-let audio, playButton, volumeBar, titleEl, subEl, artworkEl, fallbackChip;
-
 function initPlayer() {
-  audio = new Audio(streamURL);
-  playButton = document.getElementById("playButton");
-  volumeBar = document.getElementById("volumeBar");
-  titleEl = document.getElementById("trackTitle");
-  subEl = document.getElementById("trackSub");
-  artworkEl = document.getElementById("artwork");
-  fallbackChip = document.getElementById("fallbackChip");
+  const audio = new Audio(streamURL);
+  const playButton = document.getElementById("playButton");
+  const volumeBar = document.getElementById("volumeBar");
+  const titleEl = document.getElementById("trackTitle");
+  const subEl = document.getElementById("trackSub");
+  const artworkEl = document.getElementById("artwork");
+  const fallbackChip = document.getElementById("fallbackChip");
+
+  const FALLBACK_ART = "https://myradionest.com/assets/fallback.png";
+
+  let lastSentTitle = "";
+  let lastSentArtist = "";
+  let lastSentArt = "";
 
   document.getElementById("playerArea").classList.add(`align-${align}`);
 
@@ -353,114 +296,122 @@ function initPlayer() {
     });
   }
 
-  if (metaURL) {
-    fetchMetadata();
-    setInterval(fetchMetadata, 5000);
-  } else {
-    applyFallbackMetadata();
+  function sendHistoryUpdate(title, artist, artUrl) {
+    if (!title) return;
+
+    if (
+      title === lastSentTitle &&
+      artist === lastSentArtist &&
+      artUrl === lastSentArt
+    ) {
+      return;
+    }
+
+    lastSentTitle = title;
+    lastSentArtist = artist;
+    lastSentArt = artUrl;
+
+    const workerUrl = "https://radiohistoryworker.sthelensliveradio.workers.dev/update";
+    const url =
+      workerUrl +
+      `?title=${encodeURIComponent(title)}` +
+      `&artist=${encodeURIComponent(artist || "")}` +
+      `&art=${encodeURIComponent(artUrl || "")}`;
+
+    fetch(url).catch(() => {});
   }
-}
 
-function applyFallbackMetadata() {
-  titleEl.textContent = "Live Stream";
-  subEl.textContent = "";
-  showFallback();
-}
-
-function showFallback() {
-  if (artworkEl.src !== FALLBACK_ART) {
+  function showFallback() {
     artworkEl.classList.add("fade");
     setTimeout(() => {
       artworkEl.src = FALLBACK_ART;
       artworkEl.classList.remove("fade");
     }, 200);
+    fallbackChip.style.display = "none";
   }
-  fallbackChip.style.display = "none";
-}
 
-/* Send update to Cloudflare Worker */
-function sendHistoryUpdate(title, artist, artUrl) {
-  if (!title) return;
-  const workerUrl = "https://radiohistoryworker.sthelensliveradio.workers.dev/update";
-  const url =
-    workerUrl +
-    `?title=${encodeURIComponent(title)}` +
-    `&artist=${encodeURIComponent(artist || "")}` +
-    `&art=${encodeURIComponent(artUrl || "")}`;
+  async function updateArtwork(title, artist) {
+    const query = encodeURIComponent(title.trim());
 
-  fetch(url).catch(() => {
-    // fail silently – player must never break because of history
-  });
-}
-
-async function fetchMetadata() {
-  try {
-    const res = await fetch(metaURL + "?_=" + Date.now());
-    const data = await res.json();
-
-    let source = data.icestats && data.icestats.source;
-    if (Array.isArray(source)) source = source[0];
-    source = source || {};
-
-    let raw = source.title || "";
-
-    if (!raw.trim()) {
-      applyFallbackMetadata();
+    if (!query) {
+      showFallback();
+      sendHistoryUpdate(title, artist, FALLBACK_ART);
       return;
     }
 
-    const { artist, title } = parseMetadata(raw);
+    try {
+      const res = await fetch(
+        `https://itunes.apple.com/search?term=${query}&entity=song&limit=1`
+      );
+      const data = await res.json();
 
-    titleEl.textContent = title;
-    subEl.textContent = artist;
+      let finalArt = FALLBACK_ART;
 
-    updateArtwork(title, artist);
+      if (data.results && data.results.length > 0) {
+        let art = data.results[0].artworkUrl100;
+        art = art.replace("100x100bb.jpg", "1200x1200bb.jpg");
+        finalArt = art;
 
-  } catch {
-    applyFallbackMetadata();
-  }
-}
+        if (artworkEl.src !== art) {
+          artworkEl.classList.add("fade");
+          setTimeout(() => {
+            artworkEl.src = art;
+            artworkEl.classList.remove("fade");
+          }, 200);
+        }
 
-async function updateArtwork(title, artist) {
-  const query = encodeURIComponent(`${artist} ${title}`.trim());
-
-  if (!query) {
-    showFallback();
-    sendHistoryUpdate(title, artist, FALLBACK_ART);
-    return;
-  }
-
-  try {
-    const res = await fetch(
-      `https://itunes.apple.com/search?term=${query}&entity=song&limit=1`
-    );
-    const data = await res.json();
-
-    let finalArt = FALLBACK_ART;
-
-    if (data.results && data.results.length > 0) {
-      let art = data.results[0].artworkUrl100;
-      art = art.replace("100x100bb.jpg", "1200x1200bb.jpg");
-      finalArt = art;
-
-      if (artworkEl.src !== art) {
-        artworkEl.classList.add("fade");
-        setTimeout(() => {
-          artworkEl.src = art;
-          artworkEl.classList.remove("fade");
-        }, 200);
+        fallbackChip.style.display = "none";
+      } else {
+        showFallback();
       }
 
-      fallbackChip.style.display = "none";
-    } else {
+      sendHistoryUpdate(title, artist, finalArt);
+
+    } catch {
+      showFallback();
+      sendHistoryUpdate(title, artist, FALLBACK_ART);
+    }
+  }
+
+  async function fetchMetadata() {
+    try {
+      const res = await fetch(metaURL + "?_=" + Date.now());
+      const data = await res.json();
+
+      let source = data.icestats && data.icestats.source;
+      if (Array.isArray(source)) source = source[0];
+      source = source || {};
+
+      let raw = source.title || "";
+
+      if (!raw.trim()) {
+        titleEl.textContent = "Live Stream";
+        subEl.textContent = "";
+        showFallback();
+        return;
+      }
+
+      const cleanTitle = raw.trim();
+
+      titleEl.textContent = cleanTitle;
+      subEl.textContent = "";
+
+      updateArtwork(cleanTitle, "");
+
+    } catch {
+      titleEl.textContent = "Live Stream";
+      subEl.textContent = "";
       showFallback();
     }
+  }
 
-    sendHistoryUpdate(title, artist, finalArt);
-
-  } catch {
+  if (metaURL) {
+    fetchMetadata();
+    setInterval(fetchMetadata, 5000);
+  } else {
+    titleEl.textContent = "Live Stream";
+    subEl.textContent = "";
     showFallback();
-    sendHistoryUpdate(title, artist, FALLBACK_ART);
   }
 }
 

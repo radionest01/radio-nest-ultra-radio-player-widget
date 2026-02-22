@@ -26,6 +26,7 @@
       color: var(--text);
     }
 
+    /* Widget container */
     .widget-wrap {
       display: flex;
       flex-direction: row;
@@ -39,11 +40,23 @@
       margin: 0;
     }
 
-    .align-left { margin-left: 0; margin-right: auto; }
-    .align-center { margin-left: auto; margin-right: auto; }
-    .align-right { margin-left: auto; margin-right: 0; }
+    /* Alignment classes */
+    .align-left {
+      margin-left: 0;
+      margin-right: auto;
+    }
 
-    /* Artwork (responsive max 200px) */
+    .align-center {
+      margin-left: auto;
+      margin-right: auto;
+    }
+
+    .align-right {
+      margin-left: auto;
+      margin-right: 0;
+    }
+
+    /* Artwork */
     .art-wrap {
       width: 150px;
       height: 150px;
@@ -54,13 +67,6 @@
       box-shadow: 0 10px 25px rgba(0,0,0,0.4);
     }
 
-    @media (min-width: 1025px) {
-      .art-wrap {
-        width: 200px;
-        height: 200px;
-      }
-    }
-
     .art-img {
       width: 100%;
       height: 100%;
@@ -68,7 +74,9 @@
       transition: opacity 0.4s ease;
     }
 
-    .art-img.fade { opacity: 0; }
+    .art-img.fade {
+      opacity: 0;
+    }
 
     .fallback-chip {
       position: absolute;
@@ -84,6 +92,7 @@
       display: none;
     }
 
+    /* Metadata + controls */
     .meta-wrap {
       display: flex;
       flex-direction: column;
@@ -101,7 +110,9 @@
       color: var(--subtext);
     }
 
-    .onair-label span { color: #ff9c35; }
+    .onair-label span {
+      color: #ff9c35;
+    }
 
     .track-title {
       font-size: 16px;
@@ -162,6 +173,7 @@
       transform: scale(1.05);
     }
 
+    /* Powered by Radio Nest */
     .powered-by {
       margin-top: 6px;
       font-size: 11px;
@@ -175,30 +187,36 @@
       cursor: pointer;
     }
 
-    /* Hide volume on mobile/tablet */
+    /* MOBILE/TABLET: Hide volume slider */
     @media (max-width: 1024px) {
-      .volume-wrap { display: none; }
+      .volume-wrap {
+        display: none;
+      }
     }
 
-    /* Desktop override */
-    @media (min-width: 1025px) {
-      .volume-wrap { display: block !important; }
-    }
-
-    /* Mobile layout */
+    /* MOBILE: Switch to vertical layout */
     @media (max-width: 480px) {
       .widget-wrap {
         flex-direction: column;
         max-width: 100%;
         padding: 16px;
       }
+
       .art-wrap {
         width: 180px;
         height: 180px;
       }
+
       .meta-wrap {
         align-items: center;
         text-align: center;
+      }
+    }
+
+    /* DESKTOP: always show volume on real desktops */
+    @media screen and (min-width: 1025px) {
+      .volume-wrap {
+        display: block !important;
       }
     }
   </style>
@@ -233,16 +251,6 @@
 </div>
 
 <script>
-/* ---------------- GLOBAL DOM REFERENCES ---------------- */
-const titleEl = document.getElementById("trackTitle");
-const subEl = document.getElementById("trackSub");
-const artworkEl = document.getElementById("artwork");
-const fallbackChip = document.getElementById("fallbackChip");
-
-/* Global fallback art */
-const FALLBACK_ART = "https://myradionest.com/assets/fallback.png";
-
-/* ---------------- PARAMS ---------------- */
 const params = new URLSearchParams(window.location.search);
 const streamURL = params.get("stream");
 const metaURL = params.get("meta");
@@ -251,7 +259,20 @@ const align = params.get("align") || "center";
 
 const licenseURL = "https://raw.githubusercontent.com/radionest01/radio-nest-ultra-radio-player/main/licenses.json";
 
-/* ---------------- LICENSE CHECK ---------------- */
+/* Global fallback art so ALL functions can use it */
+const FALLBACK_ART = "https://myradionest.com/assets/fallback.png";
+
+/* Parse "Artist - Title - Version" → { artist, title } */
+function parseMetadata(raw) {
+  const parts = raw.split(" - ");
+  if (parts.length >= 2) {
+    const artist = parts[0].trim();
+    const title = parts[1].trim();
+    return { artist, title };
+  }
+  return { artist: "", title: raw.trim() };
+}
+
 async function checkLicense() {
   try {
     const res = await fetch(licenseURL + "?_=" + Date.now());
@@ -301,11 +322,16 @@ function showInvalid(reason) {
   return false;
 }
 
-/* ---------------- PLAYER INIT ---------------- */
+let audio, playButton, volumeBar, titleEl, subEl, artworkEl, fallbackChip;
+
 function initPlayer() {
-  const audio = new Audio(streamURL);
-  const playButton = document.getElementById("playButton");
-  const volumeBar = document.getElementById("volumeBar");
+  audio = new Audio(streamURL);
+  playButton = document.getElementById("playButton");
+  volumeBar = document.getElementById("volumeBar");
+  titleEl = document.getElementById("trackTitle");
+  subEl = document.getElementById("trackSub");
+  artworkEl = document.getElementById("artwork");
+  fallbackChip = document.getElementById("fallbackChip");
 
   document.getElementById("playerArea").classList.add(`align-${align}`);
 
@@ -335,7 +361,6 @@ function initPlayer() {
   }
 }
 
-/* ---------------- METADATA ---------------- */
 function applyFallbackMetadata() {
   titleEl.textContent = "Live Stream";
   subEl.textContent = "";
@@ -353,7 +378,7 @@ function showFallback() {
   fallbackChip.style.display = "none";
 }
 
-/* ---------------- HISTORY WORKER ---------------- */
+/* Send update to Cloudflare Worker */
 function sendHistoryUpdate(title, artist, artUrl) {
   if (!title) return;
   const workerUrl = "https://radiohistoryworker.sthelensliveradio.workers.dev/update";
@@ -363,10 +388,11 @@ function sendHistoryUpdate(title, artist, artUrl) {
     `&artist=${encodeURIComponent(artist || "")}` +
     `&art=${encodeURIComponent(artUrl || "")}`;
 
-  fetch(url).catch(() => {});
+  fetch(url).catch(() => {
+    // fail silently – player must never break because of history
+  });
 }
 
-/* ---------------- FETCH METADATA ---------------- */
 async function fetchMetadata() {
   try {
     const res = await fetch(metaURL + "?_=" + Date.now());
@@ -383,21 +409,20 @@ async function fetchMetadata() {
       return;
     }
 
-    const cleanTitle = raw.trim();
+    const { artist, title } = parseMetadata(raw);
 
-    titleEl.textContent = cleanTitle;
-    subEl.textContent = "";
+    titleEl.textContent = title;
+    subEl.textContent = artist;
 
-    updateArtwork(cleanTitle, "");
+    updateArtwork(title, artist);
 
   } catch {
     applyFallbackMetadata();
   }
 }
 
-/* ---------------- ARTWORK ---------------- */
 async function updateArtwork(title, artist) {
-  const query = encodeURIComponent(title.trim());
+  const query = encodeURIComponent(`${artist} ${title}`.trim());
 
   if (!query) {
     showFallback();
@@ -439,7 +464,6 @@ async function updateArtwork(title, artist) {
   }
 }
 
-/* ---------------- START ---------------- */
 checkLicense().then(valid => {
   if (valid) initPlayer();
 });

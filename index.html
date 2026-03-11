@@ -17,6 +17,69 @@
       --slider-thumb-glow: rgba(255,255,255,0.6);
     }
 
+    /* ----------------------------- */
+    /* THEMES                       */
+    /* ----------------------------- */
+
+    /* LIGHT (default) */
+    .theme-light {
+      --text: #ffffff;
+      --subtext: rgba(255,255,255,0.7);
+      --glass: rgba(255,255,255,0.15);
+      --title-color: #ffffff;
+      --slider-track: linear-gradient(90deg, #ffffff 0%, #d0d0d0 100%);
+      --slider-thumb: #ffffff;
+      --slider-thumb-glow: rgba(255,255,255,0.6);
+    }
+
+    /* DARK */
+    .theme-dark {
+      --text: #000000;
+      --subtext: rgba(0,0,0,0.6);
+      --glass: rgba(255,255,255,0.25);
+      --title-color: #000000;
+      --slider-track: linear-gradient(90deg, #444 0%, #222 100%);
+      --slider-thumb: #000000;
+      --slider-thumb-glow: rgba(0,0,0,0.4);
+    }
+
+    .theme-dark .widget-wrap {
+      background: rgba(255,255,255,0.4);
+    }
+
+    /* RETRO */
+    .theme-retro {
+      --text: #3b2f2f;
+      --subtext: rgba(59,47,47,0.7);
+      --glass: rgba(222,184,135,0.35);
+      --title-color: #3b2f2f;
+      --slider-track: linear-gradient(90deg, #a67c52 0%, #8b5e34 100%);
+      --slider-thumb: #5c3d2e;
+      --slider-thumb-glow: rgba(92,61,46,0.4);
+    }
+
+    .theme-retro .widget-wrap {
+      background: rgba(222,184,135,0.45);
+      border: 2px solid #8b5e34;
+      border-radius: 16px;
+      box-shadow: 0 6px 20px rgba(0,0,0,0.4);
+    }
+
+    .theme-retro .art-wrap {
+      border-radius: 4px;
+      box-shadow: 0 6px 14px rgba(0,0,0,0.5);
+    }
+
+    .theme-retro .play-btn {
+      background: #8b5e34;
+      color: #fff;
+      box-shadow: 0 4px 10px rgba(0,0,0,0.4);
+    }
+
+    /* ----------------------------- */
+    /* ORIGINAL STYLES              */
+    /* ----------------------------- */
+
     body {
       margin: 0;
       padding: 0;
@@ -62,9 +125,7 @@
 
     .art-img.fade { opacity: 0; }
 
-    .fallback-chip {
-      display: none; /* Hidden per your choice */
-    }
+    .fallback-chip { display: none; }
 
     .meta-wrap {
       display: flex;
@@ -91,6 +152,7 @@
       text-transform: uppercase;
       line-height: 1.2;
       word-break: break-word;
+      color: var(--title-color);
     }
 
     .track-sub {
@@ -202,6 +264,10 @@ const streamURL = params.get("stream");
 const metaURL = params.get("meta");
 const licenseKey = params.get("license");
 const align = params.get("align") || "center";
+const theme = params.get("theme") || "light";
+
+/* Apply theme */
+document.body.classList.add(`theme-${theme}`);
 
 const licenseURL = "https://raw.githubusercontent.com/radionest01/radio-nest-ultra-radio-player/main/licenses.json";
 
@@ -268,7 +334,6 @@ function initPlayer() {
 
   document.getElementById("playerArea").classList.add(`align-${align}`);
 
-  // Always start with fallback art
   artworkEl.src = FALLBACK_ART;
   fallbackChip.style.display = "none";
 

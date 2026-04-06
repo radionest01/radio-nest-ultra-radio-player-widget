@@ -174,7 +174,7 @@
       box-shadow: 0 6px 14px rgba(0,0,0,0.3);
     }
 
-    .volume-wrap { width: 100%; max-width: 160px; display: flex; }
+    .volume-wrap { width: 100%; max-width: 160px; }
 
     .volume-bar {
       width: 100%;
@@ -216,7 +216,7 @@
       cursor: pointer;
     }
 
-    
+    @media (max-width: 1024px) { .volume-wrap { display: none; } }
 
     @media (max-width: 480px) {
       .widget-wrap { flex-direction: column; max-width: 100%; padding: 16px; }
@@ -224,6 +224,9 @@
       .meta-wrap { align-items: center; text-align: center; }
     }
 
+    @media screen and (min-width: 1025px) {
+      .volume-wrap { display: block !important; }
+    }
   </style>
 </head>
 
@@ -468,41 +471,6 @@ function initPlayer() {
     titleEl.textContent = "Live Stream";
     subEl.textContent = "";
     showFallback();
-
-    if (metaURL) {
-  fetchMetadata();
-  setInterval(fetchMetadata, 5000);
-} else {
-  titleEl.textContent = "Live Stream";
-  subEl.textContent = "";
-  showFallback();
-}
-
-// ✅ ADD THIS RIGHT HERE
-function updateVolumeVisibility() {
-  const player = document.getElementById("playerArea");
-  const volumeWrap = document.querySelector(".volume-wrap");
-
-  if (!player || !volumeWrap) return;
-
-  const width = player.offsetWidth;
-
-  if (width < 340) {
-    volumeWrap.style.display = "none";
-  } else {
-    volumeWrap.style.display = "flex";
-  }
-}
-
-updateVolumeVisibility();
-window.addEventListener("resize", updateVolumeVisibility);
-
-if (window.ResizeObserver) {
-  const observer = new ResizeObserver(updateVolumeVisibility);
-  observer.observe(document.getElementById("playerArea"));
-}
-
-}
   }
 }
 
